@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>FitCoach AI</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Inter:wght@400;500;600&display=swap');
+
+  :root {
+    --bg: #0f1512;
+    --surface: #161f1a;
+    --border: #263229;
+    --text: #eaf2ec;
+    --muted: #7fa08c;
+    --accent: #7ee787;
+    --accent-dim: #2f4536;
+    --user-bubble: #1f2b23;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    font-family: 'Inter', system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  header {
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  header .badge {
+    width: 32px; height: 32px;
+    border-radius: 8px;
+    background: var(--accent-dim);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 16px;
+  }
+
+  header h1 {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 17px;
+    margin: 0;
+    letter-spacing: 0.2px;
+  }
+
+  header p {
+    margin: 0;
+    font-size: 12px;
+    color: var(--muted);
+  }
+
+  #chat {
+    flex: 1;
+    overflow-y: auto;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    max-width: 760px;
+    width: 100%;
+    margin: 0 auto;
+  }
+
+  .msg {
+    max-width: 82%;
+    padding: 12px 14px;
+    border-radius: 12px;
+    line-height: 1.5;
+    font-size: 14.5px;
+    white-space: pre-wrap;
+  }
+
+  .msg.user {
+    align-self: flex-end;
+    background: var(--user-bubble);
+    border: 1px solid var(--border);
+  }
+
+  .msg.assistant {
+    align-self: flex-start;
+    background: var(--surface);
+    border: 1px solid var(--border);
+  }
+
+  .msg.assistant .label, .msg.user .label {
+    display: block;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--muted);
+    margin-bottom: 4px;
+  }
+
+  .cursor::after {
+    content: '▍';
+    animation: blink 1s step-start infinite;
+    color: var(--accent);
+  }
+  @keyframes blink { 50% { opacity: 0; } }
+
+  #empty-state {
+    margin: auto;
+    text-align: center;
+    color: var(--muted);
+    max-width: 420px;
+  }
+  #empty-state h2 {
+    font-family: 'Space Grotesk', sans-serif;
+    color: var(--text);
+    font-size: 20px;
+    margin-bottom: 8px;
+  }
+
+  form {
+    display: flex;
+    gap: 8px;
+    padding: 14px 20px 20px;
+    max-width: 760px;
+    width: 100%;
+    margin: 0 auto;
+  }
+
+  textarea {
+    flex: 1;
+    resize: none;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--text);
+    padding: 12px 14px;
+    font-family: inherit;
+    font-size: 14.5px;
+    max-height: 140px;
+  }
+  textarea:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+  button {
+    border: none;
+    background: var(--accent);
+    color: #0f1512;
+    font-weight: 600;
+    padding: 0 20px;
+    border-radius: 10px;
+    cursor: pointer;
+    font-size: 14px;
+  }
+  button:disabled { background: var(--accent-dim); color: var(--muted); cursor: not-allowed; }
+  button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  #error-banner {
+    display: none;
+    max-width: 760px;
+    margin: 0 auto;
+    padding: 10px 20px;
+    color: #ff9d93;
+    font-size: 13px;
+  }
+
+  @media (max-width: 600px) {
+    .msg { max-width: 92%; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="badge">🏋️</div>
+  <div>
+    <h1>FitCoach AI</h1>
+    <p>Your training partner for workouts, form, and motivation</p>
+  </div>
+</header>
+
+<div id="chat">
+  <div id="empty-state">
+    <h2>What are we training today?</h2>
+    <p>Ask about a workout plan, exercise form, recovery, or how to stay consistent. FitCoach AI isn't a doctor — for injuries or medical concerns, see a professional.</p>
+  </div>
+</div>
+
+<div id="error-banner"></div>
+
+<form id="chat-form">
+  <textarea id="input" rows="1" placeholder="Message FitCoach AI…" required></textarea>
+  <button id="send-btn" type="submit">Send</button>
+</form>
+
+<script>
+  const chatEl = document.getElementById('chat');
+  const formEl = document.getElementById('chat-form');
+  const inputEl = document.getElementById('input');
+  const sendBtn = document.getElementById('send-btn');
+  const errorBanner = document.getElementById('error-banner');
+  const emptyState = document.getElementById('empty-state');
+
+  let history = [];
+
+  inputEl.addEventListener('input', () => {
+    inputEl.style.height = 'auto';
+    inputEl.style.height = Math.min(inputEl.scrollHeight, 140) + 'px';
+  });
+
+  inputEl.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      formEl.requestSubmit();
+    }
+  });
+
+  function addBubble(role, text) {
+    if (emptyState.parentElement) emptyState.remove();
+    const div = document.createElement('div');
+    div.className = `msg ${role}`;
+    const label = document.createElement('span');
+    label.className = 'label';
+    label.textContent = role === 'user' ? 'You' : 'FitCoach AI';
+    const body = document.createElement('span');
+    body.className = 'body';
+    body.textContent = text;
+    div.appendChild(label);
+    div.appendChild(body);
+    chatEl.appendChild(div);
+    chatEl.scrollTop = chatEl.scrollHeight;
+    return body;
+  }
+
+  async function sendMessage(text) {
+    history.push({ role: 'user', content: text });
+    addBubble('user', text);
+
+    const assistantBody = addBubble('assistant', '');
+    assistantBody.classList.add('cursor');
+
+    sendBtn.disabled = true;
+    errorBanner.style.display = 'none';
+
+    let assistantText = '';
+
+    try {
+      const res = await fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ messages: history }),
+      });
+
+      if (!res.ok || !res.body) {
+        throw new Error(`Server returned ${res.status}`);
+      }
+
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+
+        const frames = buffer.split('\n\n');
+        buffer = frames.pop();
+
+        for (const frame of frames) {
+          const lines = frame.split('\n');
+          const eventLine = lines.find((l) => l.startsWith('event:'));
+          const dataLine = lines.find((l) => l.startsWith('data:'));
+          const eventType = eventLine ? eventLine.replace('event:', '').trim() : 'message';
+          const data = dataLine ? dataLine.replace('data:', '').trim() : '';
+
+          if (eventType === 'error') {
+            throw new Error(data || 'Unknown streaming error');
+          }
+          if (eventType === 'done') {
+            continue;
+          }
+          const chunkText = data.replace(/\\n/g, '\n');
+          assistantText += chunkText;
+          assistantBody.textContent = assistantText;
+          chatEl.scrollTop = chatEl.scrollHeight;
+        }
+      }
+
+      history.push({ role: 'assistant', content: assistantText });
+    } catch (err) {
+      errorBanner.textContent = `Something went wrong: ${err.message}`;
+      errorBanner.style.display = 'block';
+    } finally {
+      assistantBody.classList.remove('cursor');
+      sendBtn.disabled = false;
+    }
+  }
+
+  formEl.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const text = inputEl.value.trim();
+    if (!text) return;
+    inputEl.value = '';
+    inputEl.style.height = 'auto';
+    sendMessage(text);
+  });
+</script>
+
+</body>
+  </html>
